@@ -99,7 +99,22 @@ const defaultCategories=[
  {name:"Shopping",type:"expense"},{name:"Entertainment",type:"expense"},{name:"EMI / Loan",type:"expense"},
  {name:"Insurance",type:"expense"},{name:"Other",type:"expense"},{name:"Salary",type:"income"},{name:"Other Income",type:"income"}
 ];
-let data=JSON.parse(localStorage.getItem("mcm_v11")||"null")||{transactions:[],categories:defaultCategories,budgets:{}};
+let saved=JSON.parse(localStorage.getItem("mcm_v11")||"null");
+let oldTx=JSON.parse(localStorage.getItem("mcm_transactions")||"[]");
+let oldBudget=Number(localStorage.getItem("mcm_budget")||0);
+let data=saved||{transactions:[],categories:defaultCategories,budgets:{}};
+if(oldTx.length&&data.transactions.length===0){
+ data.transactions=oldTx.map(x=>({
+  id:String(x.id||Date.now()+Math.random()),
+  type:x.type==="income"?"income":"expense",
+  amount:Number(x.amount)||0,
+  date:x.date||new Date().toISOString().slice(0,10),
+  category:x.category||"Other",
+  note:x.description||x.note||""
+ }));
+ if(oldBudget>0)data.legacyTotalBudget=oldBudget;
+ localStorage.setItem("mcm_v11",JSON.stringify(data));
+}
 let editId=null, txFilter="all";
 const money=n=>"₹"+Number(n||0).toLocaleString("en-IN",{maximumFractionDigits:2});
 const today=new Date(); const iso=d=>new Date(d.getTime()-d.getTimezoneOffset()*60000).toISOString().slice(0,10);
