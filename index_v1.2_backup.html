@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0f766e">
+<title>Middle Class Money Tracker</title>
+<style>
+*{box-sizing:border-box}
+body{margin:0;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;background:#f4f7f7;color:#17202a;padding-bottom:92px}
+header{background:#0f766e;color:white;padding:26px 18px 22px}
+header h1{margin:0;font-size:30px} header p{margin:8px 0 0;font-size:17px;opacity:.9}
+main{max-width:900px;margin:auto;padding:18px}
+.cards{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
+.card,.panel{background:white;border-radius:22px;padding:20px;box-shadow:0 5px 18px #0000000d;margin-bottom:16px}
+.card small{color:#697586;font-size:16px}.amount{font-size:29px;font-weight:700;margin-top:8px}.income{color:#16803c}.expense{color:#d9342b}.balance{color:#19756f}
+h2{font-size:24px;margin:0 0 18px}
+.month{width:100%;padding:15px;border:2px solid #d7dce2;border-radius:17px;background:white;font-size:17px}
+.progress{height:12px;background:#e7ecec;border-radius:10px;overflow:hidden}.progress span{display:block;height:100%;background:#0f766e}
+.row{display:flex;justify-content:space-between;gap:12px;align-items:center;padding:13px 0;border-bottom:1px solid #edf0f0}.row:last-child{border-bottom:0}
+.muted{color:#6b778c}.empty{text-align:center;color:#6b778c;padding:20px}
+.nav{position:fixed;bottom:0;left:0;right:0;background:#fff;border-top:1px solid #ddd;display:grid;grid-template-columns:repeat(4,1fr);gap:8px;padding:10px 12px calc(10px + env(safe-area-inset-bottom));z-index:5}
+.nav button{border:0;border-radius:17px;background:#eef2f2;padding:12px 5px;font-size:15px;font-weight:700;color:#17202a}
+button{cursor:pointer}.primary{background:#0f766e;color:white;border:0;border-radius:12px;padding:13px 18px;font-weight:700}.danger{background:#fee2e2;color:#b91c1c;border:0;border-radius:10px;padding:9px 12px;font-weight:700}.secondary{background:#eef2f2;border:0;border-radius:10px;padding:9px 12px;font-weight:700}
+.formgrid{display:grid;grid-template-columns:1fr 1fr;gap:12px}.field{display:flex;flex-direction:column;gap:6px}.field.full{grid-column:1/-1}label{font-weight:600;font-size:14px}
+input,select{width:100%;padding:13px;border:1px solid #cdd4da;border-radius:11px;background:white;font-size:16px}
+.actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:14px}
+.badge{padding:5px 9px;border-radius:20px;background:#e8f4f2;color:#0f766e;font-size:13px;font-weight:700}
+.hidden{display:none!important}
+.tabs{display:flex;gap:8px;overflow:auto;margin-bottom:16px}.tabs button{white-space:nowrap;border:0;background:#e9eeee;border-radius:12px;padding:10px 14px;font-weight:700}.tabs button.active{background:#0f766e;color:white}
+body{overflow-x:hidden}
+@media(max-width:900px){main{padding:14px;max-width:100%}.cards{grid-template-columns:1fr;gap:10px}.card{padding:16px;border-radius:18px}.amount{font-size:25px}.card small{font-size:14px}.formgrid{grid-template-columns:1fr}.field.full{grid-column:auto}header h1{font-size:27px}.row{align-items:flex-start}.nav button{font-size:14px}}
+</style>
+</head>
+<body>
+<header><h1>Middle Class Money Tracker</h1><p>Simple • Private • No bank connection</p></header>
+<main>
+<section id="dashboard">
+<div class="cards">
+<div class="card"><small>Income</small><div id="incomeTotal" class="amount income">₹0</div></div>
+<div class="card"><small>Expenses</small><div id="expenseTotal" class="amount expense">₹0</div></div>
+<div class="card"><small>Balance</small><div id="balanceTotal" class="amount balance">₹0</div></div>
+</div>
+<div class="panel"><h2>This Month</h2><input id="monthPicker" class="month" type="month"></div>
+<div class="panel"><h2>Budget vs Actual</h2><div id="budgetSummary"></div></div>
+<div class="panel"><h2>Expenses by Category</h2><div id="categorySummary"></div></div>
+<div class="panel"><h2>Recent Transactions</h2><div id="recentList"></div></div>
+</section>
+
+<section id="transactions" class="hidden">
+<div class="panel">
+<h2>Transactions</h2>
+<div class="tabs"><button class="active" onclick="filterTransactions('all',this)">All</button><button onclick="filterTransactions('income',this)">Income</button><button onclick="filterTransactions('expense',this)">Expenses</button></div>
+<div id="transactionList"></div>
+</div>
+</section>
+
+<section id="add" class="hidden">
+<div class="panel"><h2 id="formTitle">Add Transaction</h2>
+<div class="formgrid">
+<div class="field"><label>Type</label><select id="type"><option value="expense">Expense</option><option value="income">Income</option></select></div>
+<div class="field"><label>Amount (₹)</label><input id="amount" type="number" min="0" step="0.01" placeholder="1000"></div>
+<div class="field"><label>Date</label><input id="date" type="date"></div>
+<div class="field"><label>Category</label><select id="category"></select></div>
+<div class="field full"><label>Note (optional)</label><input id="note" type="text" placeholder="e.g. Grocery shopping"></div>
+</div>
+<div class="actions"><button class="primary" onclick="saveTransaction()">Save Transaction</button><button class="secondary" onclick="cancelEdit()">Cancel</button></div>
+</div></section>
+
+<section id="budget" class="hidden">
+<div class="panel"><h2>Budget Allocation</h2>
+<p class="muted">Set your monthly budget for each expense category.</p>
+<div id="budgetInputs"></div>
+<div class="actions"><button class="primary" onclick="saveBudgets()">Save Budgets</button></div>
+</div>
+</section>
+
+<section id="settings" class="hidden">
+<div class="panel"><h2>Categories</h2>
+<p class="muted">Create your own expense or income categories.</p>
+<div class="formgrid"><div class="field"><label>New category</label><input id="newCategory" placeholder="e.g. School"></div><div class="field"><label>Type</label><select id="newCategoryType"><option value="expense">Expense</option><option value="income">Income</option></select></div></div>
+<div class="actions"><button class="primary" onclick="addCategory()">Add Category</button></div>
+<div id="categoryManager" style="margin-top:15px"></div>
+</div>
+<div class="panel"><h2>Backup & Restore</h2>
+<p class="muted">Keep a backup of your transactions, categories and budgets. Your data stays on this device unless you export it.</p>
+<div class="actions"><button class="primary" onclick="exportData()">Export Backup</button><button class="secondary" onclick="document.getElementById("importFile").click()">Import Backup</button><input id="importFile" type="file" accept="application/json,.json" style="display:none" onchange="importData(this)"></div>
+<p class="muted" style="margin-top:12px">Tip: export a backup regularly and keep the file in your iPhone Files app.</p></div>
+<div class="panel"><h2>Data</h2><p class="muted">All data is stored locally on this device. No bank connection.</p><button class="danger" onclick="clearAllData()">Delete all app data</button></div>
+</section>
+</main>
+
+<nav class="nav">
+<button onclick="showSection('dashboard')">🏠<br>Dashboard</button>
+<button onclick="newTransaction()">➕<br>Add</button>
+<button onclick="showSection('budget')">💰<br>Budget</button>
+<button onclick="showSection('settings')">⚙️<br>Settings</button>
+</nav>
+
+<script>
+const defaultCategories=[
+ {name:"Food & Grocery",type:"expense"},{name:"Housing",type:"expense"},{name:"Utilities",type:"expense"},
+ {name:"Transport",type:"expense"},{name:"Education",type:"expense"},{name:"Healthcare",type:"expense"},
+ {name:"Shopping",type:"expense"},{name:"Entertainment",type:"expense"},{name:"EMI / Loan",type:"expense"},
+ {name:"Insurance",type:"expense"},{name:"Other",type:"expense"},{name:"Salary",type:"income"},{name:"Other Income",type:"income"}
+];
+let saved=JSON.parse(localStorage.getItem("mcm_v11")||"null");
+let oldTx=JSON.parse(localStorage.getItem("mcm_transactions")||"[]");
+let oldBudget=Number(localStorage.getItem("mcm_budget")||0);
+let data=saved||{transactions:[],categories:defaultCategories,budgets:{}};
+if(oldTx.length&&data.transactions.length===0){
+ data.transactions=oldTx.map(x=>({
+  id:String(x.id||Date.now()+Math.random()),
+  type:x.type==="income"?"income":"expense",
+  amount:Number(x.amount)||0,
+  date:x.date||new Date().toISOString().slice(0,10),
+  category:x.category||"Other",
+  note:x.description||x.note||""
+ }));
+ if(oldBudget>0)data.legacyTotalBudget=oldBudget;
+ localStorage.setItem("mcm_v11",JSON.stringify(data));
+}
+let editId=null, txFilter="all";
+const money=n=>"₹"+Number(n||0).toLocaleString("en-IN",{maximumFractionDigits:2});
+const today=new Date(); const iso=d=>new Date(d.getTime()-d.getTimezoneOffset()*60000).toISOString().slice(0,10);
+document.getElementById("date").value=iso(today); document.getElementById("monthPicker").value=iso(today).slice(0,7);
+function persist(){localStorage.setItem("mcm_v11",JSON.stringify(data));}
+function month(){return document.getElementById("monthPicker").value||iso(today).slice(0,7)}
+function txMonth(t){return t.date.slice(0,7)}
+function showSection(id){["dashboard","transactions","add","budget","settings"].forEach(x=>document.getElementById(x).classList.toggle("hidden",x!==id));if(id==="dashboard")renderDashboard();if(id==="transactions")renderTransactions();if(id==="budget")renderBudgets();if(id==="settings")renderCategories();}
+function newTransaction(){editId=null;document.getElementById("formTitle").textContent="Add Transaction";document.getElementById("type").value="expense";document.getElementById("amount").value="";document.getElementById("date").value=iso(today);document.getElementById("note").value="";fillCategoryOptions();showSection("add")}
+function fillCategoryOptions(){let type=document.getElementById("type").value;document.getElementById("category").innerHTML=data.categories.filter(c=>c.type===type).map(c=>`<option>${esc(c.name)}</option>`).join("")}
+document.getElementById("type").addEventListener("change",fillCategoryOptions);
+function saveTransaction(){let amount=Number(document.getElementById("amount").value);if(!amount||amount<0)return alert("Please enter a valid amount.");let t={id:editId||Date.now().toString(),type:document.getElementById("type").value,amount,date:document.getElementById("date").value,category:document.getElementById("category").value,note:document.getElementById("note").value.trim()};if(!t.date)return alert("Please select a date.");let i=data.transactions.findIndex(x=>x.id===editId);if(i>=0)data.transactions[i]=t;else data.transactions.push(t);persist();showSection("transactions")}
+function editTransaction(id){let t=data.transactions.find(x=>x.id===id);if(!t)return;editId=id;document.getElementById("formTitle").textContent="Edit Transaction";document.getElementById("type").value=t.type;fillCategoryOptions();document.getElementById("amount").value=t.amount;document.getElementById("date").value=t.date;document.getElementById("category").value=t.category;document.getElementById("note").value=t.note||"";showSection("add")}
+function deleteTransaction(id){if(!confirm("Delete this transaction?"))return;data.transactions=data.transactions.filter(x=>x.id!==id);persist();renderTransactions();renderDashboard()}
+function cancelEdit(){showSection("transactions")}
+function renderDashboard(){let m=month(),ts=data.transactions.filter(t=>txMonth(t)===m),inc=ts.filter(t=>t.type==="income").reduce((a,t)=>a+t.amount,0),exp=ts.filter(t=>t.type==="expense").reduce((a,t)=>a+t.amount,0);incomeTotal.textContent=money(inc);expenseTotal.textContent=money(exp);balanceTotal.textContent=money(inc-exp);renderBudgetSummary(ts);renderCategorySummary(ts);let r=[...ts].sort((a,b)=>b.date.localeCompare(a.date)).slice(0,5);recentList.innerHTML=r.length?r.map(txHTML).join(""):`<div class="empty">No transactions yet.</div>`}
+function renderBudgetSummary(ts){let cats=data.categories.filter(c=>c.type==="expense"),html="";cats.forEach(c=>{let b=Number(data.budgets[c.name]||0),a=ts.filter(t=>t.type==="expense"&&t.category===c.name).reduce((s,t)=>s+t.amount,0);if(b||a){let pct=b?Math.min(100,a/b*100):0;html+=`<div class="row"><div style="flex:1"><b>${esc(c.name)}</b><div class="muted">${money(a)} actual / ${money(b)} budget</div><div class="progress"><span style="width:${pct}%"></span></div></div><span class="badge">${b&&a>b?"Over budget":"On track"}</span></div>`}});budgetSummary.innerHTML=html||`<div class="empty">No budgets set yet. Go to 💰 Budget.</div>`}
+function renderCategorySummary(ts){let map={};ts.filter(t=>t.type==="expense").forEach(t=>map[t.category]=(map[t.category]||0)+t.amount);let rows=Object.entries(map).sort((a,b)=>b[1]-a[1]);categorySummary.innerHTML=rows.length?rows.map(([c,v])=>`<div class="row"><b>${esc(c)}</b><strong class="expense">${money(v)}</strong></div>`).join(""):`<div class="empty">No expenses recorded.</div>`}
+function txHTML(t){return `<div class="row"><div style="flex:1"><b>${esc(t.category)}</b> ${t.note?`<span class="muted">• ${esc(t.note)}</span>`:""}<div class="muted">${t.date} • ${t.type==="income"?"Income":"Expense"}</div></div><div style="text-align:right"><strong class="${t.type==="income"?"income":"expense"}">${t.type==="income"?"+":"-"}${money(t.amount)}</strong><div class="actions" style="justify-content:flex-end"><button class="secondary" onclick="editTransaction('${t.id}')">Edit</button><button class="danger" onclick="deleteTransaction('${t.id}')">Delete</button></div></div></div>`}
+function renderTransactions(){let ts=[...data.transactions].sort((a,b)=>b.date.localeCompare(a.date));if(txFilter!=="all")ts=ts.filter(t=>t.type===txFilter);transactionList.innerHTML=ts.length?ts.map(txHTML).join(""):`<div class="empty">No transactions found.</div>`}
+function filterTransactions(f,btn){txFilter=f;document.querySelectorAll(".tabs button").forEach(b=>b.classList.remove("active"));btn.classList.add("active");renderTransactions()}
+function renderBudgets(){let cats=data.categories.filter(c=>c.type==="expense");budgetInputs.innerHTML=cats.map(c=>`<div class="field" style="margin:12px 0"><label>${esc(c.name)}</label><input class="budgetInput" data-cat="${esc(c.name)}" type="number" min="0" step="100" value="${Number(data.budgets[c.name]||0)}"></div>`).join("")}
+function saveBudgets(){document.querySelectorAll(".budgetInput").forEach(i=>data.budgets[i.dataset.cat]=Number(i.value)||0);persist();alert("Budgets saved.");showSection("dashboard")}
+function addCategory(){let name=document.getElementById("newCategory").value.trim();let type=document.getElementById("newCategoryType").value;if(!name)return;if(data.categories.some(c=>c.name.toLowerCase()===name.toLowerCase()))return alert("Category already exists.");data.categories.push({name,type});persist();document.getElementById("newCategory").value="";renderCategories()}
+function deleteCategory(name){if(data.transactions.some(t=>t.category===name))return alert("This category is used by transactions. Edit or delete those transactions first.");if(!confirm("Delete category "+name+"?"))return;data.categories=data.categories.filter(c=>c.name!==name);delete data.budgets[name];persist();renderCategories()}
+function renderCategories(){let e=data.categories.filter(c=>c.type==="expense"),i=data.categories.filter(c=>c.type==="income");categoryManager.innerHTML=`<h3>Expense categories</h3>${e.map(c=>`<div class="row"><span>${esc(c.name)}</span><button class="danger" onclick="deleteCategory('${js(c.name)}')">Delete</button></div>`).join("")}<h3>Income categories</h3>${i.map(c=>`<div class="row"><span>${esc(c.name)}</span><button class="danger" onclick="deleteCategory('${js(c.name)}')">Delete</button></div>`).join("")}`}
+function exportData(){
+ const backup={version:1,app:"Middle Class Money Tracker",exportedAt:new Date().toISOString(),data};
+ const blob=new Blob([JSON.stringify(backup,null,2)],{type:"application/json"});
+ const url=URL.createObjectURL(blob);
+ const a=document.createElement("a");a.href=url;a.download="middle-class-money-backup-"+iso(new Date())+".json";document.body.appendChild(a);a.click();a.remove();URL.revokeObjectURL(url);
+}
+function importData(input){
+ const file=input.files&&input.files[0];if(!file)return;
+ const reader=new FileReader();
+ reader.onload=()=>{try{
+  const backup=JSON.parse(reader.result);
+  const incoming=backup&&backup.data?backup.data:backup;
+  if(!incoming||!Array.isArray(incoming.transactions)||!Array.isArray(incoming.categories)||typeof incoming.budgets!=="object")throw new Error("Invalid backup");
+  if(!confirm("Restore this backup? Your current app data will be replaced by the backup."))return;
+  data={transactions:incoming.transactions,categories:incoming.categories,budgets:incoming.budgets};
+  persist();alert("Backup restored successfully.");location.reload();
+ }catch(e){alert("This is not a valid Middle Class Money Tracker backup file.");}};
+ reader.readAsText(file);input.value="";
+}
+function clearAllData(){if(!confirm("This will permanently delete all transactions, categories and budgets on this device. Continue?"))return;localStorage.removeItem("mcm_v11");location.reload()}
+function esc(s){return String(s??"").replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[m]))}
+function js(s){return String(s).replace(/\\/g,"\\\\").replace(/'/g,"\\'")}
+document.getElementById("monthPicker").addEventListener("change",renderDashboard);
+fillCategoryOptions();renderDashboard();
+</script>
+</body>
+</html>
